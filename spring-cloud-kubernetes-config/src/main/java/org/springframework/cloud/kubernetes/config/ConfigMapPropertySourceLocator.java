@@ -47,6 +47,7 @@ import static org.springframework.cloud.kubernetes.config.PropertySourceUtils.ya
  * A {@link PropertySourceLocator} that uses config maps.
  *
  * @author Ioannis Canellos
+ * @author Michael Moudatsos
  */
 @Order(0)
 public class ConfigMapPropertySourceLocator implements PropertySourceLocator {
@@ -112,7 +113,7 @@ public class ConfigMapPropertySourceLocator implements PropertySourceLocator {
 		}).filter(Files::isRegularFile).forEach(p -> {
 			try {
 				String content = new String(Files.readAllBytes(p)).trim();
-				String filename = p.getFileName().toString().toLowerCase();
+				String filename = p.toAbsolutePath().toString().toLowerCase();
 				if (filename.endsWith(".properties")) {
 					addPropertySourceIfNeeded(
 							c -> PROPERTIES_TO_MAP
@@ -133,7 +134,7 @@ public class ConfigMapPropertySourceLocator implements PropertySourceLocator {
 	}
 
 	private void addPropertySourceIfNeeded(
-			Function<String, Map<String, String>> contentToMapFunction, String content,
+			Function<String, Map<String, Object>> contentToMapFunction, String content,
 			String name, CompositePropertySource composite) {
 
 		Map<String, Object> map = new HashMap<>();

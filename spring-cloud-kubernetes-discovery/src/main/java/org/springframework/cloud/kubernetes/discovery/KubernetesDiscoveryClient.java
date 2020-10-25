@@ -17,7 +17,6 @@
 package org.springframework.cloud.kubernetes.discovery;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -42,6 +41,7 @@ import org.springframework.util.Assert;
 import org.springframework.util.StringUtils;
 
 import static java.util.stream.Collectors.toMap;
+import static org.springframework.cloud.kubernetes.discovery.KubernetesServiceInstance.NAMESPACE_METADATA_KEY;
 
 /**
  * Kubeneretes implementation of {@link DiscoveryClient}.
@@ -102,13 +102,7 @@ public class KubernetesDiscoveryClient implements DiscoveryClient {
 		Assert.notNull(serviceId,
 				"[Assertion failed] - the object argument must not be null");
 
-		List<Endpoints> endpointsList = this.properties.isAllNamespaces()
-				? this.client.endpoints().inAnyNamespace()
-						.withField("metadata.name", serviceId).list().getItems()
-				: Collections
-						.singletonList(this.client.endpoints().withName(serviceId).get());
-
-		List<EndpointSubsetNS> subsetsNS = endpointsList.stream()
+		List<EndpointSubsetNS> subsetsNS = this.getEndPointsList(serviceId).stream()
 				.map(endpoints -> getSubsetsFromEndpoints(endpoints))
 				.collect(Collectors.toList());
 
@@ -120,6 +114,15 @@ public class KubernetesDiscoveryClient implements DiscoveryClient {
 		}
 
 		return instances;
+	}
+
+	public List<Endpoints> getEndPointsList(String serviceId) {
+		return this.properties.isAllNamespaces()
+				? this.client.endpoints().inAnyNamespace()
+						.withField("metadata.name", serviceId)
+						.withLabels(properties.getServiceLabels()).list().getItems()
+				: this.client.endpoints().withField("metadata.name", serviceId)
+						.withLabels(properties.getServiceLabels()).list().getItems();
 	}
 
 	private List<ServiceInstance> getNamespaceServiceInstances(EndpointSubsetNS es,
@@ -151,6 +154,10 @@ public class KubernetesDiscoveryClient implements DiscoveryClient {
 					endpointMetadata.putAll(portMetadata);
 				}
 
+				if (this.properties.isAllNamespaces()) {
+					endpointMetadata.put(NAMESPACE_METADATA_KEY, namespace);
+				}
+
 				List<EndpointAddress> addresses = s.getAddresses();
 				for (EndpointAddress endpointAddress : addresses) {
 					String instanceId = null;
@@ -160,7 +167,8 @@ public class KubernetesDiscoveryClient implements DiscoveryClient {
 
 					EndpointPort endpointPort = findEndpointPort(s);
 					instances.add(new KubernetesServiceInstance(instanceId, serviceId,
-							endpointAddress, endpointPort, endpointMetadata,
+							endpointAddress.getIp(), endpointPort.getPort(),
+							endpointMetadata,
 							this.isServicePortSecureResolver
 									.resolve(new DefaultIsServicePortSecureResolver.Input(
 											endpointPort.getPort(),
