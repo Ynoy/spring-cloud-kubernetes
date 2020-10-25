@@ -31,7 +31,6 @@ import org.junit.Test;
 import org.springframework.cloud.bootstrap.config.BootstrapPropertySource;
 import org.springframework.cloud.kubernetes.config.ConfigMapPropertySource;
 import org.springframework.cloud.kubernetes.config.ConfigMapPropertySourceLocator;
-import org.springframework.cloud.kubernetes.config.SecretsPropertySourceLocator;
 import org.springframework.mock.env.MockEnvironment;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -60,22 +59,14 @@ public class EventBasedConfigurationChangeDetectorTests {
 		when(mixedOperation.withName(eq("myconfigmap"))).thenReturn(resource);
 		when(k8sClient.configMaps()).thenReturn(mixedOperation);
 
-		ConfigMapPropertySource configMapPropertySource = new ConfigMapPropertySource(
-				k8sClient, "myconfigmap");
-		env.getPropertySources()
-				.addFirst(new BootstrapPropertySource(configMapPropertySource));
+		ConfigMapPropertySource configMapPropertySource = new ConfigMapPropertySource(k8sClient, "myconfigmap");
+		env.getPropertySources().addFirst(new BootstrapPropertySource(configMapPropertySource));
 
-		ConfigurationUpdateStrategy configurationUpdateStrategy = mock(
-				ConfigurationUpdateStrategy.class);
-		ConfigMapPropertySourceLocator configMapLocator = mock(
-				ConfigMapPropertySourceLocator.class);
-		SecretsPropertySourceLocator secretsLocator = mock(
-				SecretsPropertySourceLocator.class);
-		EventBasedConfigurationChangeDetector detector = new EventBasedConfigurationChangeDetector(
-				env, configReloadProperties, k8sClient, configurationUpdateStrategy,
-				configMapLocator, secretsLocator);
-		List<ConfigMapPropertySource> sources = detector
-				.findPropertySources(ConfigMapPropertySource.class);
+		ConfigurationUpdateStrategy configurationUpdateStrategy = mock(ConfigurationUpdateStrategy.class);
+		ConfigMapPropertySourceLocator configMapLocator = mock(ConfigMapPropertySourceLocator.class);
+		EventBasedConfigMapChangeDetector detector = new EventBasedConfigMapChangeDetector(env, configReloadProperties,
+				k8sClient, configurationUpdateStrategy, configMapLocator);
+		List<ConfigMapPropertySource> sources = detector.findPropertySources(ConfigMapPropertySource.class);
 		assertThat(sources.size()).isEqualTo(1);
 		assertThat(sources.get(0).getProperty("foo")).isEqualTo("bar");
 	}

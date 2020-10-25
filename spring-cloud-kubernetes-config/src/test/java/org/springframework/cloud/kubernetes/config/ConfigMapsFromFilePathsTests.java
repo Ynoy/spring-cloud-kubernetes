@@ -39,16 +39,17 @@ import static org.assertj.core.util.Lists.newArrayList;
 import static org.springframework.cloud.kubernetes.config.ConfigMapTestUtil.createFileWithContent;
 
 @RunWith(SpringRunner.class)
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
-		classes = App.class,
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, classes = App.class,
 		properties = { "spring.application.name=configmap-path-example",
 				"spring.cloud.kubernetes.config.enableApi=false",
-				"spring.cloud.kubernetes.config.paths="
-						+ ConfigMapsFromFilePathsTests.FIRST_FILE_NAME_FULL_PATH + ","
-						+ ConfigMapsFromFilePathsTests.SECOND_FILE_NAME_FULL_PATH })
+				"spring.cloud.kubernetes.config.paths=" + ConfigMapsFromFilePathsTests.FIRST_FILE_NAME_FULL_PATH + ","
+						+ ConfigMapsFromFilePathsTests.SECOND_FILE_NAME_FULL_PATH + ","
+						+ ConfigMapsFromFilePathsTests.FIRST_FILE_NAME_DUPLICATED_FULL_PATH })
 public class ConfigMapsFromFilePathsTests {
 
 	protected static final String FILES_ROOT_PATH = "/tmp/scktests";
+
+	protected static final String FILES_SUB_PATH = "another-directory";
 
 	protected static final String FIRST_FILE_NAME = "application.properties";
 
@@ -56,14 +57,14 @@ public class ConfigMapsFromFilePathsTests {
 
 	protected static final String UNUSED_FILE_NAME = "unused.properties";
 
-	protected static final String FIRST_FILE_NAME_FULL_PATH = FILES_ROOT_PATH + "/"
+	protected static final String FIRST_FILE_NAME_FULL_PATH = FILES_ROOT_PATH + "/" + FIRST_FILE_NAME;
+
+	protected static final String SECOND_FILE_NAME_FULL_PATH = FILES_ROOT_PATH + "/" + SECOND_FILE_NAME;
+
+	protected static final String UNUSED_FILE_NAME_FULL_PATH = FILES_ROOT_PATH + "/" + UNUSED_FILE_NAME;
+
+	protected static final String FIRST_FILE_NAME_DUPLICATED_FULL_PATH = FILES_ROOT_PATH + "/" + FILES_SUB_PATH + "/"
 			+ FIRST_FILE_NAME;
-
-	protected static final String SECOND_FILE_NAME_FULL_PATH = FILES_ROOT_PATH + "/"
-			+ SECOND_FILE_NAME;
-
-	protected static final String UNUSED_FILE_NAME_FULL_PATH = FILES_ROOT_PATH + "/"
-			+ UNUSED_FILE_NAME;
 
 	@ClassRule
 	public static KubernetesServer server = new KubernetesServer();
@@ -78,27 +79,23 @@ public class ConfigMapsFromFilePathsTests {
 		mockClient = server.getClient();
 
 		// Configure the kubernetes master url to point to the mock server
-		System.setProperty(Config.KUBERNETES_MASTER_SYSTEM_PROPERTY,
-				mockClient.getConfiguration().getMasterUrl());
+		System.setProperty(Config.KUBERNETES_MASTER_SYSTEM_PROPERTY, mockClient.getConfiguration().getMasterUrl());
 		System.setProperty(Config.KUBERNETES_TRUST_CERT_SYSTEM_PROPERTY, "true");
 		System.setProperty(Config.KUBERNETES_AUTH_TRYKUBECONFIG_SYSTEM_PROPERTY, "false");
-		System.setProperty(Config.KUBERNETES_AUTH_TRYSERVICEACCOUNT_SYSTEM_PROPERTY,
-				"false");
+		System.setProperty(Config.KUBERNETES_AUTH_TRYSERVICEACCOUNT_SYSTEM_PROPERTY, "false");
 		System.setProperty(Config.KUBERNETES_NAMESPACE_SYSTEM_PROPERTY, "test");
 		System.setProperty(Config.KUBERNETES_HTTP2_DISABLE, "true");
-
-		Files.createDirectories(Paths.get(FILES_ROOT_PATH));
-		createFileWithContent(FIRST_FILE_NAME_FULL_PATH,
-				"bean.greeting=Hello from path!");
+		Files.createDirectories(Paths.get(FILES_ROOT_PATH + "/" + FILES_SUB_PATH));
+		createFileWithContent(FIRST_FILE_NAME_FULL_PATH, "bean.greeting=Hello from path!");
 		createFileWithContent(SECOND_FILE_NAME_FULL_PATH, "bean.farewell=Bye from path!");
-		createFileWithContent(UNUSED_FILE_NAME_FULL_PATH,
-				"bean.morning=Morning from path!");
+		createFileWithContent(UNUSED_FILE_NAME_FULL_PATH, "bean.morning=Morning from path!");
+		createFileWithContent(FIRST_FILE_NAME_DUPLICATED_FULL_PATH, "bean.bonjour=Bonjour from path!");
 	}
 
 	@AfterClass
 	public static void teardownAfterClass() {
-		newArrayList(FIRST_FILE_NAME_FULL_PATH, SECOND_FILE_NAME_FULL_PATH,
-				SECOND_FILE_NAME_FULL_PATH, FILES_ROOT_PATH).forEach(fn -> {
+		newArrayList(FIRST_FILE_NAME_FULL_PATH, SECOND_FILE_NAME_FULL_PATH, SECOND_FILE_NAME_FULL_PATH, FILES_ROOT_PATH)
+				.forEach(fn -> {
 					try {
 						Files.delete(Paths.get(fn));
 					}
@@ -109,20 +106,26 @@ public class ConfigMapsFromFilePathsTests {
 
 	@Test
 	public void greetingInputShouldReturnPropertyFromFirstFile() {
-		this.webClient.get().uri("/api/greeting").exchange().expectStatus().isOk()
-				.expectBody().jsonPath("content").isEqualTo("Hello from path!");
+		this.webClient.get().uri("/api/greeting").exchange().expectStatus().isOk().expectBody().jsonPath("content")
+				.isEqualTo("Hello from path!");
 	}
 
 	@Test
 	public void farewellInputShouldReturnPropertyFromSecondFile() {
-		this.webClient.get().uri("/api/farewell").exchange().expectStatus().isOk()
-				.expectBody().jsonPath("content").isEqualTo("Bye from path!");
+		this.webClient.get().uri("/api/farewell").exchange().expectStatus().isOk().expectBody().jsonPath("content")
+				.isEqualTo("Bye from path!");
 	}
 
 	@Test
 	public void morningInputShouldReturnDefaultValue() {
-		this.webClient.get().uri("/api/morning").exchange().expectStatus().isOk()
-				.expectBody().jsonPath("content").isEqualTo("Good morning, World!");
+		this.webClient.get().uri("/api/morning").exchange().expectStatus().isOk().expectBody().jsonPath("content")
+				.isEqualTo("Good morning, World!");
+	}
+
+	@Test
+	public void bonjourInputShouldReturnPropertyFromDuplicatedFile() {
+		this.webClient.get().uri("/api/bonjour").exchange().expectStatus().isOk().expectBody().jsonPath("content")
+				.isEqualTo("Bonjour from path!");
 	}
 
 }

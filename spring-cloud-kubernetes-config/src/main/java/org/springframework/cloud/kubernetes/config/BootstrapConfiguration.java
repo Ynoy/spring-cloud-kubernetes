@@ -24,7 +24,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
-import org.springframework.cloud.kubernetes.KubernetesAutoConfiguration;
+import org.springframework.cloud.kubernetes.commons.KubernetesCommonsAutoConfiguration;
+import org.springframework.cloud.kubernetes.fabric8.Fabric8AutoConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
@@ -40,27 +41,22 @@ import org.springframework.context.annotation.Import;
 public class BootstrapConfiguration {
 
 	@Configuration(proxyBeanMethods = false)
-	@Import(KubernetesAutoConfiguration.class)
-	@EnableConfigurationProperties({ ConfigMapConfigProperties.class,
-			SecretsConfigProperties.class })
+	@Import({ KubernetesCommonsAutoConfiguration.class, Fabric8AutoConfiguration.class })
+	@EnableConfigurationProperties({ ConfigMapConfigProperties.class, SecretsConfigProperties.class })
 	protected static class KubernetesPropertySourceConfiguration {
 
 		@Autowired
 		private KubernetesClient client;
 
 		@Bean
-		@ConditionalOnProperty(name = "spring.cloud.kubernetes.config.enabled",
-				matchIfMissing = true)
-		public ConfigMapPropertySourceLocator configMapPropertySourceLocator(
-				ConfigMapConfigProperties properties) {
+		@ConditionalOnProperty(name = "spring.cloud.kubernetes.config.enabled", matchIfMissing = true)
+		public ConfigMapPropertySourceLocator configMapPropertySourceLocator(ConfigMapConfigProperties properties) {
 			return new ConfigMapPropertySourceLocator(this.client, properties);
 		}
 
 		@Bean
-		@ConditionalOnProperty(name = "spring.cloud.kubernetes.secrets.enabled",
-				matchIfMissing = true)
-		public SecretsPropertySourceLocator secretsPropertySourceLocator(
-				SecretsConfigProperties properties) {
+		@ConditionalOnProperty(name = "spring.cloud.kubernetes.secrets.enabled", matchIfMissing = true)
+		public SecretsPropertySourceLocator secretsPropertySourceLocator(SecretsConfigProperties properties) {
 			return new SecretsPropertySourceLocator(this.client, properties);
 		}
 
